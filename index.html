@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gerenciador de Eventos Esportivos - Organize suas partidas com facilidade">
+  <meta name="theme-color" content="#6366f1">
+  
+  <title>Sports Event Manager - Painel Admin</title>
+  
+  <!-- Preconnect para performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="page-header">
+    <div class="page-header-content">
+      <h1>⚽ Sports Event Manager</h1>
+      <p class="text-muted" style="color: rgba(255,255,255,0.9); margin-top: var(--spacing-sm);">
+        Gerencie seus eventos esportivos de forma simples e eficiente
+      </p>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content page-enter">
+    <!-- Login Section -->
+    <section id="login-section" class="mb-xl">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🔐 Área do Administrador</h3>
+        </div>
+        <p class="text-muted mb-lg">
+          Faça login para criar e gerenciar eventos. Participantes não precisam de login.
+        </p>
+        
+        <form id="login-form" class="flex flex-col gap-md">
+          <div class="form-group">
+            <label class="form-label" for="login-email">E-mail</label>
+            <input 
+              type="email" 
+              id="login-email" 
+              class="form-input" 
+              placeholder="seu@email.com"
+              required
+              autocomplete="email"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="login-password">Senha</label>
+            <input 
+              type="password" 
+              id="login-password" 
+              class="form-input" 
+              placeholder="••••••••"
+              required
+              autocomplete="current-password"
+            >
+          </div>
+          
+          <button type="submit" class="btn btn-primary">
+            Entrar
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Admin Panel (hidden until login) -->
+    <section id="admin-panel" class="hidden">
+      <div class="flex justify-between items-center mb-lg">
+        <h2>Meus Eventos</h2>
+        <div class="flex gap-sm">
+          <button id="logout-btn" class="btn btn-secondary">
+            Sair
+          </button>
+          <button id="create-event-btn" class="btn btn-primary">
+            <span>➕</span> Novo Evento
+          </button>
+        </div>
+      </div>
+
+      <!-- Events List -->
+      <div id="events-list" class="flex flex-col gap-md">
+        <!-- Events will be rendered here -->
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </div>
+    </section>
+
+    <!-- Public Info -->
+    <section class="mt-xl">
+      <div class="card">
+        <h3>📱 Como Funciona?</h3>
+        <div class="flex flex-col gap-md mt-md">
+          <div class="flex gap-md">
+            <div class="badge badge-primary" style="min-width: 24px; height: 24px;">1</div>
+            <div>
+              <strong>Crie seu evento</strong>
+              <p class="text-muted mb-0">Defina data, local, número máximo de participantes e custo</p>
+            </div>
+          </div>
+          <div class="flex gap-md">
+            <div class="badge badge-primary" style="min-width: 24px; height: 24px;">2</div>
+            <div>
+              <strong>Compartilhe o link</strong>
+              <p class="text-muted mb-0">Envie o link público para seus amigos confirmarem presença</p>
+            </div>
+          </div>
+          <div class="flex gap-md">
+            <div class="badge badge-primary" style="min-width: 24px; height: 24px;">3</div>
+            <div>
+              <strong>Gerencie no dia</strong>
+              <p class="text-muted mb-0">Controle placar, timer e gere times automaticamente</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer style="text-align: center; padding: var(--spacing-xl); color: var(--color-text-muted); font-size: 0.875rem;">
+    <p>Feito com ❤️ para organizar melhores partidas</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="script.js"></script>
+</body>
+</html>
