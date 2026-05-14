@@ -5,11 +5,21 @@ const STORAGE_KEY = 'sports_events';
 const LAST_ADMIN_KEY = 'last_admin_login';
 const JOINED_PREFIX = 'joined_event_';
 const TRASH_KEY = 'events_trash';
+const USERS_KEY = 'sports_events_users';
+const CURRENT_USER_KEY = 'sports_events_current_user';
 const GOOGLE_MAPS_API_KEY = ''; // Configure sua API Key do Google Maps
 const SUPABASE_URL = ''; // Configure sua URL do Supabase
 const SUPABASE_ANON_KEY = ''; // Configure sua Anon Key do Supabase
 const SUPABASE_TABLE = 'events';
 const CLOUD_SYNC_INTERVAL_MS = 3000;
+
+// Usuário de teste padrão (criado automaticamente se não existir)
+const TEST_USER = {
+  email: 'teste@sportsevents.com',
+  password: '123456',
+  name: 'Usuário Teste',
+  createdAt: Date.now()
+};
 
 /* ============================================
    SISTEMA DE TOASTS
@@ -491,6 +501,124 @@ const AuthManager = {
 };
 
 /* ============================================
+   SISTEMA DE AUTENTICAÇÃO COM USUÁRIOS
+   ============================================ */
+const UserManager = {
+  init() {
+    // Criar usuário de teste se não existir
+    const users = this.getUsers();
+    if (users.length === 0) {
+      this.createUser(TEST_USER.name, TEST_USER.email, TEST_USER.password);
+      console.log('Usuário de teste criado:', TEST_USER.email);
+    }
+  },
+
+  getUsers() {
+    try {
+      const data = localStorage.getItem(USERS_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveUsers(users) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  },
+
+  getCurrentUser() {
+    try {
+      const data = localStorage.getItem(CURRENT_USER_KEY);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  setCurrentUser(user) {
+    if (user) {
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(CURRENT_USER_KEY);
+    }
+  },
+
+  createUser(name, email, password) {
+    const users = this.getUsers();
+    
+    // Verificar se email já existe
+    if (users.find(u => u.email === email)) {
+      return { success: false, error: 'E-mail já cadastrado' };
+    }
+
+    const user = {
+      id: 'usr_' + Math.random().toString(36).substr(2, 9),
+      name,
+      email,
+      password, // Em produção, usar hash
+      createdAt: Date.now(),
+      eventsCreated: []
+    };
+
+    users.push(user);
+    this.saveUsers(users);
+    return { success: true, user };
+  },
+
+  login(email, password) {
+    const users = this.getUsers();
+    const user = users.find(u => u.email === email && u.password === password);
+
+    if (user) {
+      this.setCurrentUser(user);
+      localStorage.setItem(LAST_ADMIN_KEY, email);
+      return { success: true, user };
+    }
+
+    return { success: false, error: 'E-mail ou senha inválidos' };
+  },
+
+  logout() {
+    this.setCurrentUser(null);
+    localStorage.removeItem(LAST_ADMIN_KEY);
+  },
+
+  isLoggedIn() {
+    return this.getCurrentUser() !== null;
+  },
+
+  getUserById(id) {
+    const users = this.getUsers();
+    return users.find(u => u.id === id);
+  },
+
+  updateUserEvents(userId, eventId, action = 'add') {
+    const users = this.getUsers();
+    const index = users.findIndex(u => u.id === userId);
+    
+    if (index === -1) return false;
+
+    if (action === 'add') {
+      if (!users[index].eventsCreated.includes(eventId)) {
+        users[index].eventsCreated.push(eventId);
+      }
+    } else if (action === 'remove') {
+      users[index].eventsCreated = users[index].eventsCreated.filter(id => id !== eventId);
+    }
+
+    this.saveUsers(users);
+    
+    // Atualizar usuário atual se for o mesmo
+    const currentUser = this.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      this.setCurrentUser(users[index]);
+    }
+
+    return true;
+  }
+};
+
+/* ============================================
    UTILITÁRIOS
    ============================================ */
 const Utils = {
@@ -941,45 +1069,47 @@ function initAdminPage() {
   const loginForm = document.getElementById('login-form');
   const createEventBtn = document.getElementById('create-event-btn');
   const eventModal = document.getElementById('event-modal');
-
+  
   // Verificar autenticação
-  if (AuthManager.isLoggedIn()) {
+  if (UserManager.isLoggedIn()) {
     showAdminPanel();
   }
-
+  
   // Login form submit
   loginForm?.addEventListener('submit', (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email')?.value;
     const password = document.getElementById('login-password')?.value;
 
-    if (AuthManager.login(email, password)) {
-      toast.success('Login realizado', 'Bem-vindo de volta!');
+    const result = UserManager.login(email, password);
+    if (result.success) {
+      toast.success('Login realizado', `Bem-vindo, ${result.user.name}!`);
       showAdminPanel();
     } else {
-      toast.error('Erro no login', 'Verifique suas credenciais');
+      toast.error('Erro no login', result.error);
     }
   });
-
+  
   // Botão de criar evento
   createEventBtn?.addEventListener('click', () => {
-    if (!AuthManager.isLoggedIn()) {
-      toast.warning('Login necessário', 'Faça login para criar eventos');
-      loginSection?.scrollIntoView({ behavior: 'smooth' });
+    if (!UserManager.isLoggedIn()) {
+      toast.warning('Login necessário', 'Faça login ou crie uma conta para criar eventos');
+      showLoginModal();
       return;
     }
     openEventModal();
   });
-
+  
   // Sincronização com nuvem
   setupCloudSync();
-
+  
   // Renderizar eventos
   renderEventsList();
-
+  
   // Expurar lixeira automaticamente (30 dias)
   expireTrash();
 }
+
 
 function showAdminPanel() {
   const loginSection = document.getElementById('login-section');
@@ -988,11 +1118,18 @@ function showAdminPanel() {
   loginSection?.classList.add('hidden');
   adminPanel?.classList.remove('hidden');
   
+  // Atualizar informações do usuário logado
+  const userInfo = document.getElementById('user-info');
+  const currentUser = UserManager.getCurrentUser();
+  if (userInfo && currentUser) {
+    userInfo.textContent = `Olá, ${currentUser.name}`;
+  }
+  
   // Mostrar botão de logout
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn && !logoutBtn.hasAttribute('data-initialized')) {
     logoutBtn.addEventListener('click', () => {
-      AuthManager.logout();
+      UserManager.logout();
       toast.info('Logout realizado', 'Até logo!');
       setTimeout(() => location.reload(), 500);
     });
@@ -1083,6 +1220,14 @@ function saveEvent() {
     return;
   }
 
+  // Verificar se usuário está logado para criar/editar
+  const currentUser = UserManager.getCurrentUser();
+  if (!currentUser) {
+    toast.error('Login necessário', 'Faça login para criar ou editar eventos');
+    showLoginModal();
+    return;
+  }
+
   const eventData = {
     name,
     dateTime: new Date(dateTimeStr).getTime(),
@@ -1092,7 +1237,9 @@ function saveEvent() {
     description: description || '',
     participants: currentEditEventId ? DataManager.getEventById(currentEditEventId)?.participants || [] : [],
     reserves: currentEditEventId ? DataManager.getEventById(currentEditEventId)?.reserves || [] : [],
-    status: 'scheduled'
+    status: 'scheduled',
+    createdBy: currentUser.id,
+    creatorName: currentUser.name
   };
 
   if (currentEditEventId) {
@@ -1102,6 +1249,8 @@ function saveEvent() {
   } else {
     // Criar novo evento
     const newEvent = DataManager.addEvent(eventData);
+    // Associar evento ao criador
+    UserManager.updateUserEvents(currentUser.id, newEvent.id, 'add');
     toast.success('Evento criado', `ID: ${newEvent.id}`);
   }
 
@@ -1737,6 +1886,9 @@ function generateTeamsForEvent() {
    INICIALIZAÇÃO
    ============================================ */
 document.addEventListener('DOMContentLoaded', () => {
+  // Inicializar sistema de usuários (cria usuário de teste se necessário)
+  UserManager.init();
+
   // Detectar página atual
   const isEventPage = window.location.pathname.includes('evento.html');
   
@@ -1773,3 +1925,160 @@ window.saveEvent = saveEvent;
 window.removeParticipant = removeParticipant;
 window.generateTeamsForEvent = generateTeamsForEvent;
 window.initMap = window.initMap;
+window.showLoginModal = showLoginModal;
+window.showRegisterModal = showRegisterModal;
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.handleLogout = handleLogout;
+
+/* ============================================
+   FUNÇÕES DE AUTENTICAÇÃO (LOGIN/REGISTRO)
+   ============================================ */
+function showLoginModal() {
+  const content = `
+    <form id="login-form-modal" class="flex flex-col gap-md">
+      <div class="form-group">
+        <label class="form-label" for="modal-login-email">E-mail *</label>
+        <input type="email" id="modal-login-email" class="form-input" required 
+               placeholder="seu@email.com" value="${TEST_USER.email}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="modal-login-password">Senha *</label>
+        <input type="password" id="modal-login-password" class="form-input" required 
+               placeholder="Sua senha" value="${TEST_USER.password}">
+        <div class="form-hint">Usuário de teste: ${TEST_USER.email} | Senha: ${TEST_USER.password}</div>
+      </div>
+    </form>
+    <div class="mt-md text-center">
+      <p class="text-muted">Não tem conta? <a href="#" id="show-register-link" class="link">Criar conta</a></p>
+    </div>
+  `;
+
+  modal.open(content, {
+    title: 'Login',
+    footer: [
+      { label: 'Cancelar', class: 'btn-secondary' },
+      { 
+        label: 'Entrar', 
+        class: 'btn-primary',
+        onClick: () => handleLogin(),
+        close: false
+      }
+    ],
+    onOpen: () => {
+      document.getElementById('show-register-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.close();
+        showRegisterModal();
+      });
+    }
+  });
+}
+
+function showRegisterModal() {
+  const content = `
+    <form id="register-form-modal" class="flex flex-col gap-md">
+      <div class="form-group">
+        <label class="form-label" for="modal-register-name">Nome *</label>
+        <input type="text" id="modal-register-name" class="form-input" required 
+               placeholder="Seu nome completo">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="modal-register-email">E-mail *</label>
+        <input type="email" id="modal-register-email" class="form-input" required 
+               placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="modal-register-password">Senha *</label>
+        <input type="password" id="modal-register-password" class="form-input" required 
+               placeholder="Mínimo 6 caracteres" minlength="6">
+        <div class="form-hint">Use uma senha segura</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="modal-register-confirm">Confirmar Senha *</label>
+        <input type="password" id="modal-register-confirm" class="form-input" required 
+               placeholder="Repita sua senha" minlength="6">
+      </div>
+    </form>
+    <div class="mt-md text-center">
+      <p class="text-muted">Já tem conta? <a href="#" id="show-login-link" class="link">Fazer login</a></p>
+    </div>
+  `;
+
+  modal.open(content, {
+    title: 'Criar Conta',
+    footer: [
+      { label: 'Cancelar', class: 'btn-secondary' },
+      { 
+        label: 'Cadastrar', 
+        class: 'btn-primary',
+        onClick: () => handleRegister(),
+        close: false
+      }
+    ],
+    onOpen: () => {
+      document.getElementById('show-login-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.close();
+        showLoginModal();
+      });
+    }
+  });
+}
+
+function handleLogin() {
+  const email = document.getElementById('modal-login-email')?.value?.trim();
+  const password = document.getElementById('modal-login-password')?.value;
+
+  if (!email || !password) {
+    toast.error('Campos obrigatórios', 'Preencha e-mail e senha');
+    return;
+  }
+
+  const result = UserManager.login(email, password);
+  if (result.success) {
+    toast.success('Login realizado', `Bem-vindo, ${result.user.name}!`);
+    modal.close();
+    setTimeout(() => location.reload(), 500);
+  } else {
+    toast.error('Erro no login', result.error);
+  }
+}
+
+function handleRegister() {
+  const name = document.getElementById('modal-register-name')?.value?.trim();
+  const email = document.getElementById('modal-register-email')?.value?.trim();
+  const password = document.getElementById('modal-register-password')?.value;
+  const confirm = document.getElementById('modal-register-confirm')?.value;
+
+  // Validações
+  if (!name || !email || !password) {
+    toast.error('Campos obrigatórios', 'Preencha todos os campos');
+    return;
+  }
+
+  if (password.length < 6) {
+    toast.error('Senha muito curta', 'A senha deve ter pelo menos 6 caracteres');
+    return;
+  }
+
+  if (password !== confirm) {
+    toast.error('Senhas não conferem', 'Digite a mesma senha nos dois campos');
+    return;
+  }
+
+  const result = UserManager.createUser(name, email, password);
+  if (result.success) {
+    toast.success('Conta criada', 'Faça login para continuar');
+    modal.close();
+    showLoginModal();
+  } else {
+    toast.error('Erro no cadastro', result.error);
+  }
+}
+
+function handleLogout() {
+  UserManager.logout();
+  toast.info('Logout realizado', 'Até logo!');
+  setTimeout(() => location.reload(), 500);
+}
