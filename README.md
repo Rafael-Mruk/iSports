@@ -126,15 +126,16 @@ const SUPABASE_ANON_KEY = 'eyJhbGc...';
 
 ---
 
-## 🎨 Design System
+## 🎨 Design System - Cores do Brasil
 
-O projeto utiliza um design system consistente com variáveis CSS:
+O projeto utiliza um design system inspirado nas cores da bandeira brasileira:
 
 ### Cores
-- `--color-primary`: #6366f1 (Índigo)
-- `--color-secondary`: #ec4899 (Rosa)
-- `--color-success`: #22c55e (Verde)
-- `--color-error`: #ef4444 (Vermelho)
+- `--color-primary`: #009c3b (Verde Brasil)
+- `--color-secondary`: #ffdf00 (Amarelo Ouro)
+- `--color-accent`: #002776 (Azul Celeste)
+- `--color-success`: #009c3b (Verde)
+- `--color-error`: #dc3545 (Vermelho)
 
 ### Componentes
 - **Botões**: Com efeito ripple e estados hover/active
