@@ -941,6 +941,13 @@ class TeamGenerator {
    RENDERIZADORES DE UI
    ============================================ */
 const UIRenderer = {
+  escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  },
+
   renderEventCard(event, isAdmin = false) {
     const card = document.createElement('div');
     card.className = 'card fade-in-up';
